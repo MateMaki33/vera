@@ -9,6 +9,11 @@ const router = createRouter({
       name: 'assessment',
       component: AssessmentView,
     },
+    {
+      path: '/aviso-legal',
+      name: 'legal',
+      component: () => import('@/views/LegalView.vue'),
+    },
   ],
 })
 

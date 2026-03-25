@@ -11,6 +11,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import PathologyChips from '@/components/PathologyChips.vue'
 import SectionAccordion from '@/components/SectionAccordion.vue'
 import TextOutput from '@/components/TextOutput.vue'
+import AppFooter from '@/components/AppFooter.vue'
 
 // ── Data ──────────────────────────────────────────────────────
 const data = rawData as unknown as ClinicalData
@@ -144,6 +145,9 @@ watch(checkedCount, count => {
       </div>
 
     </main>
+
+    <!-- ── Footer ── -->
+    <AppFooter />
 
     <!-- ── Mobile: Floating Copy Bar ── -->
     <Transition name="mobile-bar">
