@@ -1,0 +1,232 @@
+/* ============================================================
+   SUMMA 112 — Valoración Enfermera SVA
+   Design System & Global Styles
+   ============================================================ */
+
+:root {
+  /* ── Brand Colors ── */
+  --c-primary:        #003f8a;
+  --c-primary-hover:  #0050b0;
+  --c-primary-light:  #1a6bbf;
+  --c-primary-bg:     #e8f0fb;
+  --c-primary-border: #aac4ea;
+
+  --c-accent:         #c0392b;
+  --c-accent-hover:   #a93226;
+  --c-accent-bg:      #fdecea;
+
+  /* ── Neutrals ── */
+  --c-bg:             #edf1f7;
+  --c-surface:        #ffffff;
+  --c-surface-2:      #f7f9fc;
+  --c-surface-hover:  #f0f5ff;
+
+  --c-border:         #d0d9e8;
+  --c-border-light:   #e4ecf5;
+
+  --c-text:           #17233a;
+  --c-text-2:         #3b4f6e;
+  --c-text-muted:     #6e83a3;
+  --c-text-placeholder: #9aadc5;
+
+  /* ── State Colors ── */
+  --c-checked-bg:     #e4eeff;
+  --c-checked-border: #2b6cb0;
+  --c-checked-text:   #1e3a6e;
+
+  --c-excluded-bg:    #f5f5f5;
+  --c-excluded-text:  #b0b8c5;
+
+  --c-success:        #155724;
+  --c-success-bg:     #d4edda;
+  --c-success-border: #94d4a5;
+
+  --c-warning-bg:     #fff8e1;
+  --c-warning-border: #fdd835;
+  --c-warning-text:   #e65100;
+
+  /* ── Section Accent Colors ── */
+  --sec-activacion:    #c0392b;
+  --sec-llegada:       #d35400;
+  --sec-tiempo:        #b7770d;
+  --sec-neurologia:    #6c3483;
+  --sec-respiratorio:  #1a5276;
+  --sec-cardiovascular:#922b21;
+  --sec-dolor:         #784212;
+  --sec-metabolico:    #1a6e3c;
+  --sec-sintomas:      #117a65;
+  --sec-trauma:        #7d6608;
+  --sec-intervenciones:#1f618d;
+  --sec-seguridad:     #196f3d;
+  --sec-pertenencias:  #515a6b;
+  --sec-traslado:      #003f8a;
+
+  /* ── Typography ── */
+  --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont,
+          'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --text-2xs: 0.625rem;   /* 10px */
+  --text-xs:  0.6875rem;  /* 11px */
+  --text-sm:  0.8125rem;  /* 13px */
+  --text-base:0.9375rem;  /* 15px */
+  --text-md:  1rem;       /* 16px */
+  --text-lg:  1.125rem;   /* 18px */
+  --text-xl:  1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+
+  --fw-normal:   400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* ── Spacing ── */
+  --sp-1: 0.25rem;   /* 4px */
+  --sp-2: 0.5rem;    /* 8px */
+  --sp-3: 0.75rem;   /* 12px */
+  --sp-4: 1rem;      /* 16px */
+  --sp-5: 1.25rem;   /* 20px */
+  --sp-6: 1.5rem;    /* 24px */
+  --sp-8: 2rem;      /* 32px */
+  --sp-10: 2.5rem;   /* 40px */
+
+  /* ── Border Radius ── */
+  --r-sm:   5px;
+  --r-md:   9px;
+  --r-lg:   13px;
+  --r-xl:   18px;
+  --r-2xl:  24px;
+  --r-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-xs: 0 1px 2px rgba(0, 30, 80, 0.06);
+  --shadow-sm: 0 1px 4px rgba(0, 30, 80, 0.08),
+               0 2px 8px rgba(0, 30, 80, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 30, 80, 0.08),
+               0 2px 4px rgba(0, 30, 80, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 30, 80, 0.10),
+               0 3px 8px rgba(0, 30, 80, 0.06);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* ── Transitions ── */
+  --t-fast: 0.12s ease;
+  --t:      0.2s ease;
+  --t-slow: 0.35s ease;
+
+  /* ── Layout ── */
+  --header-h:  60px;
+  --filter-h:  52px;
+  --panel-gap: 1rem;
+  --content-pad: var(--sp-4);
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.55;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  line-height: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--c-border);
+  border-radius: var(--r-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--c-text-muted); }
+
+/* ============================================================
+   KEYFRAME ANIMATIONS
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes checkBounce {
+  0%   { transform: scale(0.5) rotate(-15deg); opacity: 0; }
+  60%  { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes copyPulse {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.94); }
+  65%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes ripple {
+  0%   { transform: scale(0); opacity: 0.4; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* ============================================================
+   RESPONSIVE BREAKPOINTS
+   ============================================================ */
+
+/* Tablet portrait and above */
+@media (min-width: 768px) {
+  :root {
+    --text-base:    1rem;       /* 16px */
+    --text-sm:      0.875rem;   /* 14px */
+    --header-h:     64px;
+    --filter-h:     56px;
+    --content-pad:  var(--sp-5);
+  }
+}
+
+/* Tablet landscape / small desktop */
+@media (min-width: 1024px) {
+  :root {
+    --header-h:     68px;
+    --filter-h:     60px;
+    --content-pad:  var(--sp-6);
+  }
+}
