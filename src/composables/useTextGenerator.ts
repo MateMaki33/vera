@@ -1,17 +1,63 @@
+/**
+ * Generador de texto clínico a partir del árbol de valoración.
+ *
+ * Recorre los bloques visibles en orden clínico y, para cada bloque,
+ * ensambla el texto de los ítems seleccionados según el modo declarado
+ * en block.textAssembly:
+ *
+ *   'sentences'  (defecto): cada ítem genera su propia frase.
+ *   'inline-list': los calificadores se concatenan en una única frase
+ *                  cualitativa (usado para las constantes vitales).
+ *
+ * El texto resultante comienza con la frase de apertura del motivo
+ * de activación y no incluye ningún diagnóstico ni interpretación.
+ */
+
 import { computed } from 'vue'
-import type { Ref } from 'vue'
-import type { Section } from '@/types/clinical'
+import type { ComputedRef, Ref } from 'vue'
+import type { Block, Item } from '@/types/clinicalTree'
 
-export function useTextGenerator(sections: Section[], checkedIds: Ref<Set<string>>) {
+export function useTextGenerator(
+  visibleBlocks: ComputedRef<Block[]>,
+  itemsMap: Map<string, Item>,
+  checkedIds: Ref<Set<string>>,
+  openingText: ComputedRef<string>
+) {
   const generatedText = computed<string>(() => {
-    const allItems = sections.flatMap(s => s.items)
+    const segments: string[] = []
 
-    const selected = allItems
-      .filter(item => checkedIds.value.has(item.id))
-      .sort((a, b) => a.orden - b.orden)
+    // Frase de apertura del motivo de activación
+    if (openingText.value) {
+      segments.push(openingText.value)
+    }
 
-    if (selected.length === 0) return ''
-    return selected.map(item => item.text).join(' ')
+    for (const block of visibleBlocks.value) {
+      // Ítems del bloque que están seleccionados, en el orden declarado
+      const selectedItems = block.itemIds
+        .filter(id => checkedIds.value.has(id))
+        .map(id => itemsMap.get(id))
+        .filter((item): item is Item => item !== undefined)
+
+      if (selectedItems.length === 0) continue
+
+      const assembly = block.textAssembly
+
+      if (assembly?.mode === 'inline-list') {
+        // Ensambla todos los calificadores en una sola frase
+        // Ej: "A la valoración, paciente taquicárdico, hipotenso, taquipneico."
+        const qualifiers = selectedItems.map(item => item.text).join(', ')
+        const prefix = assembly.prefix ?? ''
+        const suffix = assembly.suffix ?? '.'
+        segments.push(`${prefix}${qualifiers}${suffix}`)
+      } else {
+        // Modo 'sentences': cada ítem aporta su propia frase completa
+        for (const item of selectedItems) {
+          segments.push(item.text)
+        }
+      }
+    }
+
+    return segments.join(' ')
   })
 
   const wordCount = computed<number>(() => {
@@ -20,7 +66,6 @@ export function useTextGenerator(sections: Section[], checkedIds: Ref<Set<string
     return text.split(/\s+/).length
   })
 
-  // Count sentences by looking for sentence-ending punctuation
   const sentenceCount = computed<number>(() => {
     const text = generatedText.value.trim()
     if (!text) return 0

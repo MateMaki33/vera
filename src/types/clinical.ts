@@ -10,6 +10,10 @@ export interface ClinicalItem {
   text: string
   patologias: string[]
   exclusivo_con?: string[]
+  grupo_texto?: string
+  prefijo_grupo?: string
+  fragmento?: string
+  fragmento_separado?: boolean
 }
 
 export interface Section {

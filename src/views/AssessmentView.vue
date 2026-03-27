@@ -1,63 +1,103 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { ClinicalItem } from '@/types/clinical'
-import type { ClinicalData } from '@/types/clinical'
+import type { Item } from '@/types/clinicalTree'
 
-import rawData from '@/collections/items.json'
-import { useAssessment } from '@/composables/useAssessment'
-import { useTextGenerator } from '@/composables/useTextGenerator'
+import { itemsMap }           from '@/data/items'
+import { blocksMap }          from '@/data/blocks'
+import { activationReasons }  from '@/data/activationReasons'
 
-import AppHeader from '@/components/AppHeader.vue'
-import PathologyChips from '@/components/PathologyChips.vue'
-import SectionAccordion from '@/components/SectionAccordion.vue'
-import TextOutput from '@/components/TextOutput.vue'
-import AppFooter from '@/components/AppFooter.vue'
+import { useAssessmentTree }  from '@/composables/useAssessmentTree'
+import { useTextGenerator }   from '@/composables/useTextGenerator'
 
-// ── Data ──────────────────────────────────────────────────────
-const data = rawData as unknown as ClinicalData
+import AppHeader                  from '@/components/AppHeader.vue'
+import ActivationReasonSelector   from '@/components/ActivationReasonSelector.vue'
+import BlockAccordion             from '@/components/BlockAccordion.vue'
+import TextOutput                 from '@/components/TextOutput.vue'
+import AppFooter                  from '@/components/AppFooter.vue'
 
-// ── Active pathology filter ───────────────────────────────────
-const activePathology = ref<string | null>(null)
+// ── Árbol de valoración ────────────────────────────────────────
+const {
+  activeReason,
+  visibleBlocks,
+  checkedIds,
+  setReason,
+  toggle,
+  isChecked,
+  isExcluded,
+  reset,
+  checkedCount,
+  blockCheckedCount,
+} = useAssessmentTree(itemsMap, blocksMap, activationReasons)
 
-// ── Visible sections (always all; relevant items are highlighted, not filtered) ─
-const visibleSections = computed(() => data.secciones)
+// ── Texto de apertura reactivo ─────────────────────────────────
+const openingText = computed(() => activeReason.value?.openingText ?? '')
 
-// ── Assessment state ──────────────────────────────────────────
-const { checkedIds, toggle, isChecked, isExcluded, reset, checkedCount, sectionCheckedCount } =
-  useAssessment(data.secciones)
-
-// ── Text generation ───────────────────────────────────────────
+// ── Generador de texto ─────────────────────────────────────────
 const { generatedText, wordCount, sentenceCount, charCount } = useTextGenerator(
-  data.secciones,
-  checkedIds
+  visibleBlocks,
+  itemsMap,
+  checkedIds,
+  openingText
 )
 
-// ── Accordion open state ──────────────────────────────────────
-const openSections = ref<Set<string>>(new Set())
+// ── Estado de los acordeones (open/close) ─────────────────────
+const openBlocks = ref<Set<string>>(new Set())
 
-function toggleSection(id: string) {
-  const next = new Set(openSections.value)
+function toggleBlock(id: string) {
+  const next = new Set(openBlocks.value)
   if (next.has(id)) {
     next.delete(id)
   } else {
     next.add(id)
   }
-  openSections.value = next
+  openBlocks.value = next
 }
 
-// ── Item toggle ───────────────────────────────────────────────
-function handleToggleItem(item: ClinicalItem) {
-  toggle(item)
+// Al cambiar de motivo, abrir automáticamente el primer bloque
+watch(
+  () => activeReason.value?.id,
+  () => {
+    openBlocks.value = new Set()
+    if (visibleBlocks.value.length > 0) {
+      const firstId = visibleBlocks.value[0]?.id
+      if (firstId) openBlocks.value = new Set([firstId])
+    }
+  }
+)
+
+// Al aparecer un bloque condicional nuevo, abrirlo automáticamente
+watch(visibleBlocks, (curr, prev) => {
+  const prevIds = new Set(prev.map(b => b.id))
+  const newOnes = curr.filter(b => !prevIds.has(b.id))
+  if (newOnes.length > 0) {
+    const next = new Set(openBlocks.value)
+    newOnes.forEach(b => next.add(b.id))
+    openBlocks.value = next
+  }
+})
+
+// ── Resolución de ítems por bloque ────────────────────────────
+// Mapea itemIds del bloque a objetos Item completos para el acordeón
+function resolveBlockItems(blockId: string): Item[] {
+  const block = blocksMap.get(blockId)
+  if (!block) return []
+  return block.itemIds
+    .map(id => itemsMap.get(id))
+    .filter((item): item is Item => item !== undefined)
 }
 
-// ── Reset ─────────────────────────────────────────────────────
+// ── Reset global ──────────────────────────────────────────────
 function handleReset() {
   reset()
-  activePathology.value = null
-  openSections.value = new Set()
+  openBlocks.value = new Set()
 }
 
-// ── Mobile output panel toggle ────────────────────────────────
+function handleFullReset() {
+  setReason(null)
+  openBlocks.value = new Set()
+}
+
+// ── Panel móvil ───────────────────────────────────────────────
 const showMobileOutput = ref(false)
 
 watch(checkedCount, count => {
@@ -68,129 +108,137 @@ watch(checkedCount, count => {
 <template>
   <div class="page">
 
-    <!-- Sticky Header -->
-    <AppHeader :checked-count="checkedCount" @reset="handleReset" />
+    <!-- Cabecera fija -->
+    <AppHeader :checked-count="checkedCount" @reset="handleFullReset" />
 
-    <!-- Sticky Pathology Filter -->
-    <PathologyChips
-      :pathologies="data.patologias_contextuales"
-      :active="activePathology"
-      @select="id => (activePathology = id)"
-    />
-
-    <!-- Main Layout -->
-    <main class="main-layout">
-
-      <!-- ── Left Panel: Sections ── -->
-      <div class="sections-panel">
-
-        <!-- Filter notice -->
-        <Transition name="notice">
-          <div v-if="activePathology" class="filter-notice">
-            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
-            </svg>
-            <span>
-              Ítems relevantes para
-              <strong>{{ data.patologias_contextuales.find(p => p.id === activePathology)?.label }}</strong>
-              destacados en amarillo. El resto también se muestra para una valoración completa.
-            </span>
-            <button class="notice-close" @click="activePathology = null" title="Quitar filtro">
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round">
-                <path d="M2 2l10 10M12 2L2 12" />
-              </svg>
-            </button>
-          </div>
-        </Transition>
-
-        <!-- Sections list -->
-        <div class="sections-list" role="list">
-          <TransitionGroup name="section-list">
-            <SectionAccordion
-              v-for="section in visibleSections"
-              :key="section.id"
-              role="listitem"
-              :section="section"
-              :is-open="openSections.has(section.id)"
-              :checked-count="sectionCheckedCount(section.id)"
-              :active-pathology="activePathology"
-              :is-checked="isChecked"
-              :is-excluded="isExcluded"
-              @toggle="toggleSection(section.id)"
-              @toggle-item="handleToggleItem"
-            />
-          </TransitionGroup>
-        </div>
-
-        <!-- Empty state when filter hides everything -->
-        <div v-if="visibleSections.length === 0" class="sections-empty">
-          <p>No hay secciones con ítems para esta patología.</p>
-        </div>
-
-        <!-- Bottom spacer (mobile: room for fixed copy bar) -->
-        <div class="bottom-spacer" aria-hidden="true"></div>
-      </div>
-
-      <!-- ── Right Panel: Text Output ── -->
-      <div class="output-panel">
-        <TextOutput
-          :text="generatedText"
-          :word-count="wordCount"
-          :sentence-count="sentenceCount"
-          :char-count="charCount"
-          :checked-count="checkedCount"
-          @clear="handleReset"
+    <!-- ── Sin motivo seleccionado: selector de motivos ── -->
+    <Transition name="selector">
+      <div v-if="!activeReason" class="selector-wrapper">
+        <ActivationReasonSelector
+          :reasons="activationReasons"
+          @select="setReason"
         />
-      </div>
-
-    </main>
-
-    <!-- ── Footer ── -->
-    <AppFooter />
-
-    <!-- ── Mobile: Floating Copy Bar ── -->
-    <Transition name="mobile-bar">
-      <div v-if="checkedCount > 0" class="mobile-copy-bar" aria-hidden="true">
-        <button
-          class="mobile-toggle-btn"
-          @click="showMobileOutput = !showMobileOutput"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
-          </svg>
-          <span>Ver texto</span>
-          <span class="mobile-count">{{ checkedCount }}</span>
-        </button>
+        <AppFooter />
       </div>
     </Transition>
 
-    <!-- ── Mobile: Bottom Sheet ── -->
-    <Transition name="sheet">
-      <div
-        v-if="showMobileOutput && checkedCount > 0"
-        class="mobile-sheet-overlay"
-        @click.self="showMobileOutput = false"
-      >
-        <div class="mobile-sheet">
-          <div class="sheet-drag-handle" aria-hidden="true"></div>
-          <button class="sheet-close" @click="showMobileOutput = false" aria-label="Cerrar">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round">
-              <path d="M5 5l10 10M15 5L5 15" />
-            </svg>
-          </button>
-          <div class="sheet-content">
+    <!-- ── Con motivo seleccionado: árbol de valoración ── -->
+    <Transition name="assessment">
+      <div v-if="activeReason" class="assessment-wrapper">
+
+        <!-- Banda del motivo activo -->
+        <div
+          class="active-reason-bar"
+          :style="{ '--reason-color': activeReason.accentColor }"
+        >
+          <div class="reason-bar-inner">
+            <span class="reason-indicator" aria-hidden="true"></span>
+            <span class="reason-label">{{ activeReason.label }}</span>
+            <button class="change-reason-btn" @click="handleFullReset">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <path d="M2 8c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6" />
+                <path d="M2 4v4h4" />
+              </svg>
+              Cambiar motivo
+            </button>
+          </div>
+        </div>
+
+        <!-- Layout principal de dos columnas -->
+        <main class="main-layout">
+
+          <!-- Panel izquierdo: bloques de valoración -->
+          <div class="blocks-panel">
+            <div class="blocks-list" role="list">
+              <TransitionGroup name="block-list">
+                <BlockAccordion
+                  v-for="(block, idx) in visibleBlocks"
+                  :key="block.id"
+                  role="listitem"
+                  :block="block"
+                  :index="idx"
+                  :is-open="openBlocks.has(block.id)"
+                  :checked-count="blockCheckedCount(block.id)"
+                  :items="resolveBlockItems(block.id)"
+                  :is-checked="isChecked"
+                  :is-excluded="isExcluded"
+                  @toggle="toggleBlock(block.id)"
+                  @toggle-item="toggle"
+                />
+              </TransitionGroup>
+            </div>
+
+            <!-- Espaciador inferior (móvil: espacio para la barra flotante) -->
+            <div class="bottom-spacer" aria-hidden="true"></div>
+          </div>
+
+          <!-- Panel derecho: salida de texto (escritorio) -->
+          <div class="output-panel">
             <TextOutput
               :text="generatedText"
               :word-count="wordCount"
               :sentence-count="sentenceCount"
               :char-count="charCount"
               :checked-count="checkedCount"
-              @clear="handleReset(); showMobileOutput = false"
+              @clear="handleReset"
             />
           </div>
-        </div>
+
+        </main>
+
+        <AppFooter />
+
+        <!-- Barra flotante móvil -->
+        <Transition name="mobile-bar">
+          <div v-if="checkedCount > 0" class="mobile-copy-bar" aria-hidden="true">
+            <button
+              class="mobile-toggle-btn"
+              @click="showMobileOutput = !showMobileOutput"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+              </svg>
+              <span>Ver texto</span>
+              <span class="mobile-count">{{ checkedCount }}</span>
+            </button>
+          </div>
+        </Transition>
+
+        <!-- Bottom sheet móvil -->
+        <Transition name="sheet">
+          <div
+            v-if="showMobileOutput && checkedCount > 0"
+            class="mobile-sheet-overlay"
+            @click.self="showMobileOutput = false"
+          >
+            <div class="mobile-sheet">
+              <div class="sheet-drag-handle" aria-hidden="true"></div>
+              <button
+                class="sheet-close"
+                aria-label="Cerrar"
+                @click="showMobileOutput = false"
+              >
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round">
+                  <path d="M5 5l10 10M15 5L5 15" />
+                </svg>
+              </button>
+              <div class="sheet-content">
+                <TextOutput
+                  :text="generatedText"
+                  :word-count="wordCount"
+                  :sentence-count="sentenceCount"
+                  :char-count="charCount"
+                  :checked-count="checkedCount"
+                  @clear="handleReset(); showMobileOutput = false"
+                />
+              </div>
+            </div>
+          </div>
+        </Transition>
+
       </div>
     </Transition>
 
@@ -198,7 +246,7 @@ watch(checkedCount, count => {
 </template>
 
 <style scoped>
-/* ── Page ── */
+/* ── Página ── */
 .page {
   display: flex;
   flex-direction: column;
@@ -206,29 +254,86 @@ watch(checkedCount, count => {
   background: var(--c-bg);
 }
 
-/* ── Main Layout ── */
+/* ── Banda del motivo activo ── */
+.active-reason-bar {
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border-light);
+  position: sticky;
+  top: var(--header-h);
+  z-index: 90;
+}
+
+.reason-bar-inner {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 9px var(--content-pad);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.reason-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--reason-color);
+  flex-shrink: 0;
+}
+
+.reason-label {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--c-text);
+  flex: 1;
+}
+
+.change-reason-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--c-text-muted);
+  padding: 5px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border-light);
+  background: var(--c-bg);
+  transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+  white-space: nowrap;
+}
+
+.change-reason-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.change-reason-btn:hover {
+  color: var(--c-primary);
+  border-color: var(--c-primary-border);
+  background: var(--c-primary-bg);
+}
+
+/* ── Layout principal ── */
 .main-layout {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto;
   max-width: 1600px;
   width: 100%;
   margin: 0 auto;
   padding: var(--sp-3) var(--content-pad) 0;
-  gap: var(--panel-gap);
+  gap: var(--sp-4);
   min-height: 0;
 }
 
-/* Two-column: fluid right panel that scales with viewport */
 @media (min-width: 768px) {
   .main-layout {
     grid-template-columns: 1fr clamp(300px, 36%, 500px);
     grid-template-rows: 1fr;
     align-items: start;
-    padding: var(--sp-4) var(--content-pad) var(--sp-4);
-    gap: var(--sp-4);
-    min-height: calc(100dvh - var(--header-h) - var(--filter-h));
+    padding: var(--sp-4) var(--content-pad);
+    /* La altura del panel sticky considera cabecera + banda de motivo */
+    --combined-top: calc(var(--header-h) + 42px);
   }
 }
 
@@ -239,90 +344,18 @@ watch(checkedCount, count => {
   }
 }
 
-@media (min-width: 1280px) {
-  .main-layout {
-    padding: var(--sp-6) var(--content-pad);
-  }
-}
-
-/* ── Sections Panel ── */
-.sections-panel {
+/* ── Panel de bloques ── */
+.blocks-panel {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
   min-width: 0;
 }
 
-.sections-list {
+.blocks-list {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-}
-
-/* ── Filter Notice ── */
-.filter-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  background: var(--c-primary-bg);
-  border: 1px solid var(--c-primary-border);
-  border-radius: var(--r-md);
-  padding: 10px 12px;
-  font-size: var(--text-sm);
-  color: var(--c-primary);
-  line-height: 1.45;
-  animation: fadeIn 0.2s ease;
-  /* Prevent overflow on narrow screens */
-  min-width: 0;
-  overflow: hidden;
-}
-
-@media (min-width: 480px) {
-  .filter-notice {
-    gap: var(--sp-3);
-    padding: 11px 14px;
-  }
-}
-
-.filter-notice svg {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.filter-notice span {
-  flex: 1;
-}
-
-.notice-close {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--r-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--c-primary);
-  flex-shrink: 0;
-  transition: background var(--t-fast);
-  margin-top: -1px;
-}
-
-.notice-close:hover {
-  background: rgba(0, 63, 138, 0.12);
-}
-
-.notice-close svg {
-  width: 12px;
-  height: 12px;
-  margin-top: 0;
-}
-
-.sections-empty {
-  text-align: center;
-  padding: var(--sp-10);
-  color: var(--c-text-muted);
-  font-size: var(--text-base);
 }
 
 .bottom-spacer {
@@ -333,7 +366,7 @@ watch(checkedCount, count => {
   .bottom-spacer { height: var(--sp-5); }
 }
 
-/* ── Output Panel ── */
+/* ── Panel de salida (escritorio) ── */
 .output-panel {
   display: none;
 }
@@ -343,21 +376,34 @@ watch(checkedCount, count => {
     display: flex;
     flex-direction: column;
     position: sticky;
-    top: calc(var(--header-h) + var(--filter-h) + var(--sp-4));
-    height: calc(100dvh - var(--header-h) - var(--filter-h) - var(--sp-4) * 2);
+    top: calc(var(--header-h) + 42px + var(--sp-4));
+    height: calc(100dvh - var(--header-h) - 42px - var(--sp-4) * 2);
     min-height: 380px;
   }
 }
 
 @media (min-width: 1024px) {
   .output-panel {
-    top: calc(var(--header-h) + var(--filter-h) + var(--sp-5));
-    height: calc(100dvh - var(--header-h) - var(--filter-h) - var(--sp-5) * 2);
+    top: calc(var(--header-h) + 42px + var(--sp-5));
+    height: calc(100dvh - var(--header-h) - 42px - var(--sp-5) * 2);
     min-height: 440px;
   }
 }
 
-/* ── Mobile: Floating Copy Bar ── */
+/* ── Wrapper del selector ── */
+.selector-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--header-h));
+}
+
+.assessment-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* ── Barra flotante móvil ── */
 .mobile-copy-bar {
   position: fixed;
   bottom: 0;
@@ -395,9 +441,7 @@ watch(checkedCount, count => {
   letter-spacing: -0.01em;
 }
 
-.mobile-toggle-btn:active {
-  transform: scale(0.98);
-}
+.mobile-toggle-btn:active { transform: scale(0.98); }
 
 .mobile-toggle-btn svg {
   width: 18px;
@@ -413,7 +457,7 @@ watch(checkedCount, count => {
   text-align: center;
 }
 
-/* ── Mobile Bottom Sheet ── */
+/* ── Bottom sheet móvil ── */
 .mobile-sheet-overlay {
   position: fixed;
   inset: 0;
@@ -483,15 +527,19 @@ watch(checkedCount, count => {
   padding: var(--sp-3) var(--sp-4) var(--sp-4);
 }
 
-/* ── Transitions ── */
-.notice-enter-active,
-.notice-leave-active {
-  transition: opacity var(--t), transform var(--t);
+/* ── Transiciones ── */
+.selector-enter-active,
+.selector-leave-active,
+.assessment-enter-active,
+.assessment-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.notice-enter-from,
-.notice-leave-to {
+.selector-enter-from,
+.selector-leave-to,
+.assessment-enter-from,
+.assessment-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(6px);
 }
 
 .mobile-bar-enter-active,
@@ -512,7 +560,6 @@ watch(checkedCount, count => {
 .sheet-leave-to {
   opacity: 0;
 }
-
 .sheet-enter-active .mobile-sheet,
 .sheet-leave-active .mobile-sheet {
   transition: transform var(--t-slow);
@@ -522,18 +569,18 @@ watch(checkedCount, count => {
   transform: translateY(100%);
 }
 
-/* TransitionGroup for sections */
-.section-list-enter-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+/* TransitionGroup para los bloques de valoración */
+.block-list-enter-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
-.section-list-leave-active {
+.block-list-leave-active {
   transition: opacity 0.15s ease;
 }
-.section-list-enter-from {
+.block-list-enter-from {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(10px);
 }
-.section-list-leave-to {
+.block-list-leave-to {
   opacity: 0;
 }
 </style>
