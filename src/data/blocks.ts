@@ -267,6 +267,8 @@ export const bloqueDtIntervencion: Block = {
     "dt_o2_mascarilla",
     "dt_nitratos",
     "dt_asa",
+    "dt_ticagrelor",
+    "dt_clopidogrel",
     "dt_analgesico",
     "dt_antieméticos",
     "dt_activacion_cod",

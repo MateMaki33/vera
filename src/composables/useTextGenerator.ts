@@ -57,7 +57,28 @@ export function useTextGenerator(
       }
     }
 
-    return segments.join(' ')
+    // Reduce la repetición de sujetos consecutivos idénticos
+    // Ej: "El paciente refiere X. El paciente refiere Y." →
+    //     "El paciente refiere X. Refiere también Y."
+    const SUBJECT_RE = /^(El paciente refiere |La paciente refiere )/
+    const alternates = ['Refiere también ', 'Asimismo refiere ', 'También refiere ']
+    let consecutive = 0
+    const deduped = segments.map(seg => {
+      const m = seg.match(SUBJECT_RE)
+      if (m) {
+        if (consecutive === 0) {
+          consecutive++
+          return seg
+        }
+        const alt = alternates[(consecutive - 1) % alternates.length]
+        consecutive++
+        return seg.replace(SUBJECT_RE, alt)
+      }
+      consecutive = 0
+      return seg
+    })
+
+    return deduped.join(' ')
   })
 
   const wordCount = computed<number>(() => {

@@ -905,6 +905,20 @@ const dolorToracicoItems: Item[] = [
     text: "Se administra ácido acetilsalicílico según protocolo.",
   },
   {
+    id: "dt_ticagrelor",
+    category: "intervencion",
+    label: "Ticagrelor",
+    text: "Se administra ticagrelor según protocolo de doble antiagregación.",
+    excludes: ["dt_clopidogrel"],
+  },
+  {
+    id: "dt_clopidogrel",
+    category: "intervencion",
+    label: "Clopidogrel",
+    text: "Se administra clopidogrel según protocolo de doble antiagregación.",
+    excludes: ["dt_ticagrelor"],
+  },
+  {
     id: "dt_analgesico",
     category: "intervencion",
     label: "Analgesia",

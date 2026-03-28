@@ -53,15 +53,11 @@ function toggleBlock(id: string) {
   openBlocks.value = next
 }
 
-// Al cambiar de motivo, abrir automáticamente el primer bloque
+// Al cambiar de motivo, cerrar todos los bloques
 watch(
   () => activeReason.value?.id,
   () => {
     openBlocks.value = new Set()
-    if (visibleBlocks.value.length > 0) {
-      const firstId = visibleBlocks.value[0]?.id
-      if (firstId) openBlocks.value = new Set([firstId])
-    }
   }
 )
 
@@ -99,10 +95,6 @@ function handleFullReset() {
 
 // ── Panel móvil ───────────────────────────────────────────────
 const showMobileOutput = ref(false)
-
-watch(checkedCount, count => {
-  if (count > 0) showMobileOutput.value = true
-})
 </script>
 
 <template>
