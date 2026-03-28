@@ -1,20 +1,20 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import AssessmentView from '../views/AssessmentView.vue'
+import { createRouter, createWebHistory } from "vue-router";
+import AssessmentView from "../views/AssessmentView.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/',
-      name: 'assessment',
+      path: "/",
+      name: "assessment",
       component: AssessmentView,
     },
     {
-      path: '/aviso-legal',
-      name: 'legal',
-      component: () => import('@/views/LegalView.vue'),
+      path: "/aviso-legal",
+      name: "legal",
+      component: () => import("../views/LegalView.vue"),
     },
   ],
-})
+});
 
-export default router
+export default router;
